@@ -1,0 +1,176 @@
+[
+  {
+    "title": "The Midnight Library",
+    "authorId": 1,
+    "yearPublished": 2020,
+    "genres": ["Fiction", "Philosophical"]
+  },
+  {
+    "title": "Project Hail Mary",
+    "authorId": 2,
+    "yearPublished": 2021,
+    "genres": ["Science Fiction", "Thriller"]
+  },
+  {
+    "title": "Where the Crawdads Sing",
+    "authorId": 3,
+    "yearPublished": 2018,
+    "genres": ["Fiction", "Mystery", "Coming-of-Age"]
+  },
+  {
+    "title": "Klara and the Sun",
+    "authorId": 4,
+    "yearPublished": 2021,
+    "genres": ["Literary Fiction", "Speculative"]
+  },
+  {
+    "title": "The Four Winds",
+    "authorId": 5,
+    "yearPublished": 2021,
+    "genres": ["Historical Fiction", "Drama"]
+  },
+  {
+    "title": "Hamnet",
+    "authorId": 6,
+    "yearPublished": 2020,
+    "genres": ["Historical Fiction"]
+  },
+  {
+    "title": "Crying in H Mart",
+    "authorId": 7,
+    "yearPublished": 2021,
+    "genres": ["Memoir", "Non-fiction"]
+  },
+  {
+    "title": "A Promised Land",
+    "authorId": 8,
+    "yearPublished": 2020,
+    "genres": ["Biography", "Politics"]
+  },
+  {
+    "title": "The Vanishing Half",
+    "authorId": 9,
+    "yearPublished": 2020,
+    "genres": ["Fiction", "Social"]
+  },
+  {
+    "title": "Greenlights",
+    "authorId": 10,
+    "yearPublished": 2020,
+    "genres": ["Memoir"]
+  },
+  {
+    "title": "Empire of Pain",
+    "authorId": 11,
+    "yearPublished": 2021,
+    "genres": ["Non-fiction", "History"]
+  },
+  {
+    "title": "Lessons in Chemistry",
+    "authorId": 12,
+    "yearPublished": 2022,
+    "genres": ["Fiction", "Humor"]
+  },
+  {
+    "title": "Sea of Tranquility",
+    "authorId": 13,
+    "yearPublished": 2022,
+    "genres": ["Science Fiction", "Literary Fiction"]
+  },
+  {
+    "title": "Tomorrow, and Tomorrow, and Tomorrow",
+    "authorId": 14,
+    "yearPublished": 2022,
+    "genres": ["Fiction", "Drama"]
+  },
+  {
+    "title": "The Lincoln Highway",
+    "authorId": 15,
+    "yearPublished": 2021,
+    "genres": ["Historical Fiction", "Adventure"]
+  },
+  {
+    "title": "Violeta",
+    "authorId": 16,
+    "yearPublished": 2022,
+    "genres": ["Historical Fiction", "Drama"]
+  },
+  {
+    "title": "Demon Copperhead",
+    "authorId": 17,
+    "yearPublished": 2022,
+    "genres": ["Fiction", "Social"]
+  },
+  {
+    "title": "Klara and the Sun: Extended Edition",
+    "authorId": 4,
+    "yearPublished": 2021,
+    "genres": ["Literary Fiction", "Speculative"]
+  },
+  {
+    "title": "Project Hail Mary: Illustrated",
+    "authorId": 2,
+    "yearPublished": 2021,
+    "genres": ["Science Fiction", "Thriller"]
+  },
+  {
+    "title": "The Midnight Library: Special Edition",
+    "authorId": 1,
+    "yearPublished": 2020,
+    "genres": ["Fiction", "Philosophical"]
+  },
+  {
+    "title": "Where the Crawdads Sing: Collector's Edition",
+    "authorId": 3,
+    "yearPublished": 2018,
+    "genres": ["Fiction", "Mystery", "Coming-of-Age"]
+  },
+  {
+    "title": "Notes on a Nervous Planet",
+    "authorId": 1,
+    "yearPublished": 2019,
+    "genres": ["Non-fiction", "Psychology"]
+  },
+  {
+    "title": "Artemis",
+    "authorId": 2,
+    "yearPublished": 2017,
+    "genres": ["Science Fiction", "Thriller"]
+  },
+  {
+    "title": "Bewilderment",
+    "authorId": 18,
+    "yearPublished": 2021,
+    "genres": ["Fiction", "Environmental"]
+  },
+  {
+    "title": "The Night Watchman",
+    "authorId": 19,
+    "yearPublished": 2020,
+    "genres": ["Historical Fiction", "Native American"]
+  },
+  {
+    "title": "Lessons in Chemistry: Deluxe Edition",
+    "authorId": 12,
+    "yearPublished": 2022,
+    "genres": ["Fiction", "Humor"]
+  },
+  {
+    "title": "Sea of Tranquility: Special Edition",
+    "authorId": 13,
+    "yearPublished": 2022,
+    "genres": ["Science Fiction", "Literary Fiction"]
+  },
+  {
+    "title": "Tomorrow, and Tomorrow, and Tomorrow: Illustrated",
+    "authorId": 14,
+    "yearPublished": 2022,
+    "genres": ["Fiction", "Drama"]
+  },
+  {
+    "title": "The Night Circus",
+    "authorId": 20,
+    "yearPublished": 2011,
+    "genres": ["Fantasy", "Romance"]
+  }
+]

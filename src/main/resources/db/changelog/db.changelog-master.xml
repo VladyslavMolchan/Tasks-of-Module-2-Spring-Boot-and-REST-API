@@ -1,0 +1,89 @@
+<databaseChangeLog
+        xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+        xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+            http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-3.1.xsd">
+
+
+    <changeSet id="1" author="admin">
+        <createTable tableName="authors">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="name" type="VARCHAR(255)">
+                <constraints nullable="false" unique="true"/>
+            </column>
+        </createTable>
+
+
+        <insert tableName="authors"><column name="name" value="Matt Haig"/></insert>
+        <insert tableName="authors"><column name="name" value="Andy Weir"/></insert>
+        <insert tableName="authors"><column name="name" value="Delia Owens"/></insert>
+
+
+        <insert tableName="authors"><column name="name" value="Kazuo Ishiguro"/></insert>             <!-- id 4 -->
+        <insert tableName="authors"><column name="name" value="Kristin Hannah"/></insert>             <!-- id 5 -->
+        <insert tableName="authors"><column name="name" value="Maggie O'Farrell"/></insert>           <!-- id 6 -->
+        <insert tableName="authors"><column name="name" value="Michelle Zauner"/></insert>            <!-- id 7 -->
+        <insert tableName="authors"><column name="name" value="Barack Obama"/></insert>               <!-- id 8 -->
+        <insert tableName="authors"><column name="name" value="Brit Bennett"/></insert>               <!-- id 9 -->
+        <insert tableName="authors"><column name="name" value="Matthew McConaughey"/></insert>        <!-- id 10 -->
+        <insert tableName="authors"><column name="name" value="Patrick Radden Keefe"/></insert>       <!-- id 11 -->
+        <insert tableName="authors"><column name="name" value="Bonnie Garmus"/></insert>              <!-- id 12 -->
+        <insert tableName="authors"><column name="name" value="Emily St. John Mandel"/></insert>      <!-- id 13 -->
+        <insert tableName="authors"><column name="name" value="Gabrielle Zevin"/></insert>            <!-- id 14 -->
+        <insert tableName="authors"><column name="name" value="Amor Towles"/></insert>                <!-- id 15 -->
+        <insert tableName="authors"><column name="name" value="Isabel Allende"/></insert>             <!-- id 16 -->
+        <insert tableName="authors"><column name="name" value="Barbara Kingsolver"/></insert>         <!-- id 17 -->
+        <insert tableName="authors"><column name="name" value="Richard Powers"/></insert>             <!-- id 18 -->
+        <insert tableName="authors"><column name="name" value="Louise Erdrich"/></insert>             <!-- id 19 -->
+        <insert tableName="authors"><column name="name" value="Erin Morgenstern"/></insert>           <!-- id 20 -->
+    </changeSet>
+
+
+
+    <changeSet id="2" author="admin">
+        <createTable tableName="books">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="title" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+            <column name="year_published" type="INT"/>
+            <column name="author_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="books"
+                baseColumnNames="author_id"
+                referencedTableName="authors"
+                referencedColumnNames="id"
+                constraintName="fk_books_authors"
+                onDelete="CASCADE"/>
+    </changeSet>
+
+
+
+    <changeSet id="3" author="admin">
+        <createTable tableName="book_genres">
+            <column name="book_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="genre" type="VARCHAR(255)">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addForeignKeyConstraint
+                baseTableName="book_genres"
+                baseColumnNames="book_id"
+                referencedTableName="books"
+                referencedColumnNames="id"
+                constraintName="fk_book_genres_book"
+                onDelete="CASCADE"/>
+    </changeSet>
+
+</databaseChangeLog>
