@@ -1,19 +1,8 @@
 package org.bookApi.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
-
 import java.util.List;
 
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-public class PaginatedResponseDto<T> {
-    private List<T> list;
-    private int totalPages;
-}
+public record PaginatedResponseDto<T>(
+        List<T> list,
+        int totalPages
+) {}

@@ -1,155 +1,111 @@
 package org.bookApi.controller;
 
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.bookApi.dto.AuthorRequestDto;
 import org.bookApi.dto.AuthorResponseDto;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
 
-import org.springframework.test.web.servlet.MockMvc;
+import org.bookApi.entity.Author;
+import org.bookApi.repository.AuthorRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.http.*;
 
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import java.util.List;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureMockMvc
-
-class AuthorControllerIT {
+public class AuthorControllerIT {
 
     @Autowired
-    private MockMvc mockMvc;
+    private TestRestTemplate restTemplate;
 
     @Autowired
-    private ObjectMapper objectMapper;
+    private AuthorRepository authorRepository;
 
-    private AuthorRequestDto createAuthorDto(String name) {
-        return AuthorRequestDto.builder().name(name).build();
+    @BeforeEach
+    void setup() {
+        authorRepository.deleteAll();
+        authorRepository.save(Author.builder().name("Author One").build());
+        authorRepository.save(Author.builder().name("Author Two").build());
     }
 
     @Test
-    void testCreateAndGetAuthor() throws Exception {
-        AuthorRequestDto dto = createAuthorDto("New Author");
+    void testGetAllAuthors() {
+        ResponseEntity<AuthorResponseDto[]> response = restTemplate.getForEntity("/api/authors", AuthorResponseDto[].class);
 
-
-        String json = objectMapper.writeValueAsString(dto);
-        String response = mockMvc.perform(post("/api/author")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").exists())
-                .andExpect(jsonPath("$.name").value("New Author"))
-                .andReturn().getResponse().getContentAsString();
-
-        AuthorResponseDto created = objectMapper.readValue(response, AuthorResponseDto.class);
-
-
-        mockMvc.perform(get("/api/author"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[*].id").isNotEmpty())
-                .andExpect(jsonPath("$[*].name").isNotEmpty());
-
-
-        mockMvc.perform(get("/api/author/" + created.getId()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("New Author"));
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody()).hasSize(2);
     }
 
     @Test
-    void testUpdateAuthor() throws Exception {
-        AuthorRequestDto dto = createAuthorDto("Author Update");
-        String json = objectMapper.writeValueAsString(dto);
-        String response = mockMvc.perform(post("/api/author")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json))
-                .andReturn().getResponse().getContentAsString();
+    void testCreateAuthor() {
+        AuthorRequestDto request = new AuthorRequestDto("Author Three");
 
-        AuthorResponseDto created = objectMapper.readValue(response, AuthorResponseDto.class);
+        ResponseEntity<AuthorResponseDto> response = restTemplate.postForEntity("/api/authors", request, AuthorResponseDto.class);
 
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().name()).isEqualTo("Author Three");
 
-        AuthorRequestDto updateDto = createAuthorDto("Updated Name");
-        String updateJson = objectMapper.writeValueAsString(updateDto);
-        mockMvc.perform(put("/api/author/" + created.getId())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(updateJson))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Updated Name"));
+        List<Author> allAuthors = authorRepository.findAll();
+        assertThat(allAuthors).hasSize(3);
     }
 
     @Test
-    void testDeleteAuthor() throws Exception {
-        AuthorRequestDto dto = createAuthorDto("Author Delete");
-        String json = objectMapper.writeValueAsString(dto);
-        String response = mockMvc.perform(post("/api/author")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json))
-                .andReturn().getResponse().getContentAsString();
+    void testCreateAuthorDuplicateName() {
+        AuthorRequestDto request = new AuthorRequestDto("Author One");
 
-        AuthorResponseDto created = objectMapper.readValue(response, AuthorResponseDto.class);
+        ResponseEntity<String> response = restTemplate.postForEntity("/api/authors", request, String.class);
 
-
-        mockMvc.perform(delete("/api/author/" + created.getId()))
-                .andExpect(status().isOk());
-
-
-        mockMvc.perform(get("/api/author/" + created.getId()))
-                .andExpect(status().isNotFound());
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody()).contains("already exists");
     }
 
     @Test
-    void testValidationAndDuplicate() throws Exception {
+    void testUpdateAuthor() {
+        Author existing = authorRepository.findAll().get(0);
+        AuthorRequestDto updateRequest = new AuthorRequestDto("Updated Name");
 
-        AuthorRequestDto dto = createAuthorDto("");
-        String json = objectMapper.writeValueAsString(dto);
-        mockMvc.perform(post("/api/author")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json))
-                .andExpect(status().isBadRequest());
+        HttpEntity<AuthorRequestDto> entity = new HttpEntity<>(updateRequest);
+        ResponseEntity<AuthorResponseDto> response = restTemplate.exchange("/api/authors/" + existing.getId(),
+                HttpMethod.PUT, entity, AuthorResponseDto.class);
 
-
-        AuthorRequestDto dto2 = createAuthorDto("Unique Author");
-        String json2 = objectMapper.writeValueAsString(dto2);
-        mockMvc.perform(post("/api/author")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json2))
-                .andExpect(status().isOk());
-
-
-        mockMvc.perform(post("/api/author")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json2))
-                .andExpect(status().isBadRequest());
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().name()).isEqualTo("Updated Name");
     }
 
     @Test
-    void testGetNonExistingAuthor() throws Exception {
+    void testUpdateAuthorNotFound() {
+        AuthorRequestDto updateRequest = new AuthorRequestDto("Does Not Exist");
 
-        mockMvc.perform(get("/api/author/99999"))
-                .andExpect(status().isNotFound());
+        HttpEntity<AuthorRequestDto> entity = new HttpEntity<>(updateRequest);
+        ResponseEntity<String> response = restTemplate.exchange("/api/authors/9999",
+                HttpMethod.PUT, entity, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).contains("Author not found");
     }
 
     @Test
-    void testUpdateAuthorWithBlankName() throws Exception {
+    void testDeleteAuthor() {
+        Author existing = authorRepository.findAll().get(0);
 
-        AuthorRequestDto dto = createAuthorDto("Author To Update Blank");
-        String json = objectMapper.writeValueAsString(dto);
-        String response = mockMvc.perform(post("/api/author")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json))
-                .andReturn().getResponse().getContentAsString();
+        ResponseEntity<Void> response = restTemplate.exchange("/api/authors/" + existing.getId(),
+                HttpMethod.DELETE, null, Void.class);
 
-        AuthorResponseDto created = objectMapper.readValue(response, AuthorResponseDto.class);
-
-
-        AuthorRequestDto updateDto = createAuthorDto("");
-        String updateJson = objectMapper.writeValueAsString(updateDto);
-        mockMvc.perform(put("/api/author/" + created.getId())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(updateJson))
-                .andExpect(status().isBadRequest());
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(authorRepository.existsById(existing.getId())).isFalse();
     }
 
+    @Test
+    void testDeleteAuthorNotFound() {
+        ResponseEntity<String> response = restTemplate.exchange("/api/authors/9999",
+                HttpMethod.DELETE, null, String.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
+        assertThat(response.getBody()).contains("Author not found");
+    }
 }

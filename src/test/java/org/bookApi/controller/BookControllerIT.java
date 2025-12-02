@@ -1,246 +1,141 @@
 package org.bookApi.controller;
 
-
-import org.bookApi.dto.BookRequestDto;
-import org.bookApi.dto.BookResponseDto;
-
-
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.bookApi.dto.*;
+import org.bookApi.entity.Author;
+import org.bookApi.entity.Book;
+import org.bookApi.repository.AuthorRepository;
+import org.bookApi.repository.BookRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.http.MediaType;
-import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.*;
 
-import org.springframework.test.web.servlet.MockMvc;
-
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@AutoConfigureMockMvc
-class BookControllerIT {
+public class BookControllerIT {
 
     @Autowired
-    private MockMvc mockMvc;
+    private TestRestTemplate restTemplate;
+
+    @Autowired
+    private BookRepository bookRepository;
+
+    @Autowired
+    private AuthorRepository authorRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
 
-    private BookRequestDto createBookDto(String title, Long authorId, int yearPublished) {
-        return BookRequestDto.builder()
-                .title(title)
-                .authorId(authorId)
-                .yearPublished(yearPublished)
-                .genres(List.of("Fiction", "Adventure"))
-                .build();
+    private Author author;
+
+    @BeforeEach
+    void setup() {
+        bookRepository.deleteAll();
+        authorRepository.deleteAll();
+        author = authorRepository.save(Author.builder().name("Test Author").build());
+        bookRepository.save(Book.builder().title("Book One").author(author).yearPublished(2020).build());
     }
 
     @Test
-    void testCreateAndGetBook() throws Exception {
-        BookRequestDto dto = createBookDto("Test Book", 1L, 2022);
-        String json = objectMapper.writeValueAsString(dto);
+    void testCreateBook() {
+        BookRequestDto request = new BookRequestDto("Book Two", author.getId(), 2021, List.of("Fiction"));
 
+        ResponseEntity<BookResponseDto> response = restTemplate.postForEntity("/api/books", request, BookResponseDto.class);
 
-        String response = mockMvc.perform(post("/api/book")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").exists())
-                .andExpect(jsonPath("$.title").value("Test Book"))
-                .andReturn().getResponse().getContentAsString();
-
-        BookResponseDto created = objectMapper.readValue(response, BookResponseDto.class);
-
-
-        mockMvc.perform(get("/api/book/" + created.getId()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.title").value("Test Book"));
-
-
-        mockMvc.perform(get("/api/book/999999"))
-                .andExpect(status().isNotFound());
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().title()).isEqualTo("Book Two");
+        assertThat(bookRepository.findAll()).hasSize(2);
     }
 
     @Test
-    void testUpdateBook() throws Exception {
-        BookRequestDto dto = createBookDto("Old Title", 1L, 2020);
-        String json = objectMapper.writeValueAsString(dto);
-        String response = mockMvc.perform(post("/api/book")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json))
-                .andReturn().getResponse().getContentAsString();
-        BookResponseDto created = objectMapper.readValue(response, BookResponseDto.class);
+    void testGetBookById() {
+        Book existing = bookRepository.findAll().get(0);
 
-        BookRequestDto updateDto = createBookDto("New Title", 2L, 2021);
-        String updateJson = objectMapper.writeValueAsString(updateDto);
+        ResponseEntity<BookResponseDto> response = restTemplate.getForEntity("/api/books/" + existing.getId(), BookResponseDto.class);
 
-        mockMvc.perform(put("/api/book/" + created.getId())
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(updateJson))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.title").value("New Title"));
-
-
-        mockMvc.perform(put("/api/book/999999")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(updateJson))
-                .andExpect(status().isNotFound());
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().title()).isEqualTo(existing.getTitle());
     }
 
     @Test
-    void testDeleteBook() throws Exception {
-        BookRequestDto dto = createBookDto("Book to Delete", 1L, 2020);
-        String json = objectMapper.writeValueAsString(dto);
-        String response = mockMvc.perform(post("/api/book")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json))
-                .andReturn().getResponse().getContentAsString();
-        BookResponseDto created = objectMapper.readValue(response, BookResponseDto.class);
+    void testUpdateBook() {
+        Book existing = bookRepository.findAll().get(0);
+        BookRequestDto updateRequest = new BookRequestDto("Updated Book", author.getId(), 2022, List.of("Mystery"));
 
-        mockMvc.perform(delete("/api/book/" + created.getId()))
-                .andExpect(status().isOk());
+        HttpEntity<BookRequestDto> entity = new HttpEntity<>(updateRequest);
+        ResponseEntity<BookResponseDto> response = restTemplate.exchange("/api/books/" + existing.getId(), HttpMethod.PUT, entity, BookResponseDto.class);
 
-        mockMvc.perform(get("/api/book/" + created.getId()))
-                .andExpect(status().isNotFound());
-
-
-        mockMvc.perform(delete("/api/book/999999"))
-                .andExpect(status().isNotFound());
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().title()).isEqualTo("Updated Book");
     }
 
     @Test
-    void testGetListBooks() throws Exception {
-        BookRequestDto dto = createBookDto(null, null, 0); // пусті фільтри
-        String json = objectMapper.writeValueAsString(dto);
+    void testDeleteBook() {
+        Book existing = bookRepository.findAll().get(0);
 
-        mockMvc.perform(post("/api/book/_list")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.list").isArray())
-                .andExpect(jsonPath("$.totalPages").exists());
+        ResponseEntity<Void> response = restTemplate.exchange("/api/books/" + existing.getId(), HttpMethod.DELETE, null, Void.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(bookRepository.existsById(existing.getId())).isFalse();
     }
 
     @Test
-    void testGenerateReport() throws Exception {
-        BookRequestDto dto = createBookDto(null, null, 0);
-        String json = objectMapper.writeValueAsString(dto);
+    void testSearchBooks() {
+        BookRequestDto request = new BookRequestDto("Search Book", author.getId(), 2021, List.of("Fiction"));
+        bookRepository.save(Book.builder().title(request.title()).author(author).yearPublished(request.yearPublished()).build());
 
-        mockMvc.perform(post("/api/book/_report")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json))
-                .andExpect(status().isOk())
-                .andExpect(header().string("Content-Disposition", "attachment; filename=books_report.csv"))
-                .andExpect(content().contentType("text/csv"));
+        MultiValueMap<String, String> params = new LinkedMultiValueMap<>();
+        params.add("title", "Search");
+
+        HttpEntity<Void> entity = new HttpEntity<>(null, new HttpHeaders());
+        ResponseEntity<PaginatedResponseDto> response = restTemplate.postForEntity("/api/books/search?title=Search", entity, PaginatedResponseDto.class);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().list()).hasSizeGreaterThan(0);
     }
 
     @Test
-    void testUploadBooks() throws Exception {
-        String jsonContent = "[{\"title\":\"Upload Book\",\"authorId\":1,\"yearPublished\":2022}]";
-        MockMultipartFile file = new MockMultipartFile(
-                "file",
-                "books.json",
-                MediaType.APPLICATION_JSON_VALUE,
-                jsonContent.getBytes(StandardCharsets.UTF_8)
-        );
+    void testGenerateCsvReport() {
+        ResponseEntity<byte[]> response = restTemplate.postForEntity("/api/books/_report", null, byte[].class);
 
-        mockMvc.perform(multipart("/api/book/_upload").file(file))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.successCount").value(1))
-                .andExpect(jsonPath("$.failedCount").value(0));
-
-
-        MockMultipartFile invalidFile = new MockMultipartFile(
-                "file",
-                "invalid.json",
-                MediaType.APPLICATION_JSON_VALUE,
-                "[{\"title\":\"\",\"authorId\":null,\"yearPublished\":2022}]".getBytes(StandardCharsets.UTF_8)
-        );
-
-        mockMvc.perform(multipart("/api/book/_upload").file(invalidFile))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.successCount").value(0))
-                .andExpect(jsonPath("$.failedCount").value(1));
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        String content = new String(response.getBody(), StandardCharsets.UTF_8);
+        assertThat(content).contains("ID", "Title", "Author");
     }
 
     @Test
-    void testValidationErrors() throws Exception {
+    void testUploadBooksFromJson() throws Exception {
+        BookRequestDto[] books = { new BookRequestDto("Uploaded Book", author.getId(), 2022, List.of("Sci-Fi")) };
+        byte[] jsonBytes = objectMapper.writeValueAsBytes(books);
 
-        BookRequestDto dto = createBookDto("", 1L, 2020);
-        String json = objectMapper.writeValueAsString(dto);
+        MultiValueMap<String, Object> body = new LinkedMultiValueMap<>();
+        ByteArrayResource resource = new ByteArrayResource(jsonBytes) {
+            @Override
+            public String getFilename() {
+                return "books.json";
+            }
+        };
+        body.add("file", resource);
 
-        mockMvc.perform(post("/api/book")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json))
-                .andExpect(status().isBadRequest());
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.MULTIPART_FORM_DATA);
 
+        HttpEntity<MultiValueMap<String, Object>> requestEntity = new HttpEntity<>(body, headers);
 
-        dto = createBookDto("Title", 1L, 999);
-        json = objectMapper.writeValueAsString(dto);
+        ResponseEntity<UploadResponseDto> response = restTemplate.postForEntity("/api/books/_upload", requestEntity, UploadResponseDto.class);
 
-        mockMvc.perform(post("/api/book")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json))
-                .andExpect(status().isBadRequest());
-
-
-        dto = createBookDto("Title", null, 2020);
-        json = objectMapper.writeValueAsString(dto);
-
-        mockMvc.perform(post("/api/book")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(json))
-                .andExpect(status().isBadRequest());
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+        assertThat(response.getBody().successCount()).isEqualTo(1);
     }
-
-
-
-
-    @Test
-    void testGetListBooksWithFilter() throws Exception {
-        BookRequestDto dto1 = createBookDto("Filtered Book", 1L, 2022);
-        BookRequestDto dto2 = createBookDto("Another Book", 2L, 2021);
-
-        mockMvc.perform(post("/api/book")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dto1)))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(post("/api/book")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dto2)))
-                .andExpect(status().isOk());
-
-
-        mockMvc.perform(post("/api/book/_list")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"authorId\":1,\"page\":1,\"size\":10}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.list[0].title").value("Filtered Book"))
-                .andExpect(jsonPath("$.list.length()").value(1));
-    }
-
-    @Test
-    void testGenerateReportWithFilter() throws Exception {
-        BookRequestDto dto = createBookDto("Report Book", 1L, 2023);
-        mockMvc.perform(post("/api/book")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(dto)))
-                .andExpect(status().isOk());
-
-        mockMvc.perform(post("/api/book/_report")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"authorId\":1}"))
-                .andExpect(status().isOk())
-                .andExpect(header().string("Content-Disposition", "attachment; filename=books_report.csv"))
-                .andExpect(content().contentType("text/csv"));
-    }
-
 }

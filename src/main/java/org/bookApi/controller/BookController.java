@@ -6,6 +6,7 @@ import org.bookApi.dto.BookResponseDto;
 import org.bookApi.dto.PaginatedResponseDto;
 import org.bookApi.dto.UploadResponseDto;
 import org.bookApi.service.BookService;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -20,55 +21,87 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.validation.Valid;
+
 import java.io.IOException;
 
+import lombok.extern.slf4j.Slf4j;
+
+
 @RestController
-@RequestMapping("/api/book")
+@RequestMapping("/api/books")
 @RequiredArgsConstructor
+@Slf4j
 public class BookController {
 
     private final BookService bookService;
 
     @PostMapping
     public BookResponseDto create(@Valid @RequestBody BookRequestDto dto) {
-        return bookService.create(dto);
-    }
-
-    @PutMapping("/{id}")
-    public BookResponseDto update(@PathVariable Long id, @Valid @RequestBody BookRequestDto dto) {
-        return bookService.update(id, dto);
+        log.info("Creating a new book: {}", dto);
+        BookResponseDto createdBook = bookService.create(dto);
+        log.info("Book created with id: {}", createdBook.id());
+        return createdBook;
     }
 
     @GetMapping("/{id}")
     public BookResponseDto getById(@PathVariable Long id) {
-        return bookService.getById(id);
+        log.info("Fetching book with id: {}", id);
+        BookResponseDto book = bookService.getById(id);
+        log.info("Fetched book: {}", book);
+        return book;
+    }
+
+    @PutMapping("/{id}")
+    public BookResponseDto update(@PathVariable Long id, @Valid @RequestBody BookRequestDto dto) {
+        log.info("Updating book with id {}: {}", id, dto);
+        BookResponseDto updatedBook = bookService.update(id, dto);
+        log.info("Book updated with id: {}", updatedBook.id());
+        return updatedBook;
     }
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
+        log.info("Deleting book with id: {}", id);
         bookService.delete(id);
+        log.info("Book deleted with id: {}", id);
     }
 
-    @PostMapping("/_list")
-    public PaginatedResponseDto<BookResponseDto> getList(
-            @RequestBody BookRequestDto dto,
+    @PostMapping("/search")
+    public PaginatedResponseDto<BookResponseDto> search(
+            @RequestParam(required = false) Long authorId,
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) Integer yearPublished,
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size
     ) {
-        return bookService.getList(dto.getAuthorId(), dto.getTitle(), dto.getYearPublished(), page, size);
+        log.info("Searching books with filters - authorId: {}, title: {}, yearPublished: {}, page: {}, size: {}",
+                authorId, title, yearPublished, page, size);
+        PaginatedResponseDto<BookResponseDto> result = bookService.getList(authorId, title, yearPublished, page, size);
+        log.info("Search result contains {} books", result.list().size());
+        return result;
     }
 
     @PostMapping("/_report")
-    public ResponseEntity<byte[]> generateReport(@RequestBody BookRequestDto dto) throws IOException {
-        byte[] file = bookService.generateCsvReport(dto.getAuthorId(), dto.getTitle(), dto.getYearPublished());
+    public ResponseEntity<byte[]> report(
+            @RequestParam(required = false) Long authorId,
+            @RequestParam(required = false) String title,
+            @RequestParam(required = false) Integer yearPublished
+    ) throws IOException {
+        log.info("Generating CSV report for books with filters - authorId: {}, title: {}, yearPublished: {}",
+                authorId, title, yearPublished);
+        byte[] data = bookService.generateCsvReport(authorId, title, yearPublished);
+        log.info("CSV report generated, size: {} bytes", data.length);
         return ResponseEntity.ok()
-                .header("Content-Disposition", "attachment; filename=books_report.csv")
-                .contentType(MediaType.parseMediaType("text/csv"))
-                .body(file);
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=books_report.csv")
+                .contentType(MediaType.TEXT_PLAIN)
+                .body(data);
     }
 
     @PostMapping("/_upload")
-    public UploadResponseDto uploadBooks(@RequestParam("file") MultipartFile file) throws IOException {
-        return bookService.uploadFromJson(file);
+    public UploadResponseDto upload(@RequestParam("file") MultipartFile file) throws IOException {
+        log.info("Uploading books from file: {}", file.getOriginalFilename());
+        UploadResponseDto response = bookService.uploadFromJson(file);
+        log.info("Upload completed, successful: {}, failed: {}", response.successCount(), response.failedCount());
+        return response;
     }
 }
