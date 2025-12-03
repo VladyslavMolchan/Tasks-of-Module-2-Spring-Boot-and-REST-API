@@ -19,6 +19,7 @@ public class AuthorService {
 
     private final AuthorRepository authorRepository;
 
+
     public List<AuthorResponseDto> getAll() {
         log.info("Fetching all authors");
         List<AuthorResponseDto> authors = authorRepository.findAll().stream()
@@ -27,6 +28,21 @@ public class AuthorService {
         log.info("Fetched {} authors", authors.size());
         return authors;
     }
+
+
+    public AuthorResponseDto getByIdOrDefault(Long id) {
+        return authorRepository.findById(id)
+                .map(AuthorMapper::toDto)
+                .orElseGet(() -> AuthorMapper.toDto(getDefaultAuthor()));
+    }
+
+    private Author getDefaultAuthor() {
+        return Author.builder()
+                .id(0L)
+                .name("Default Author")
+                .build();
+    }
+
 
     public AuthorResponseDto create(AuthorRequestDto dto) {
         log.info("Creating author with name: {}", dto.name());
@@ -43,6 +59,14 @@ public class AuthorService {
         log.info("Author created successfully with id: {}", createdAuthor.id());
         return createdAuthor;
     }
+
+
+    public AuthorResponseDto createOrReturnExisting(AuthorRequestDto dto) {
+        return authorRepository.findByName(dto.name())
+                .map(AuthorMapper::toDto)
+                .orElseGet(() -> create(dto));
+    }
+
 
     public AuthorResponseDto update(Long id, AuthorRequestDto dto) {
         log.info("Updating author with id: {} and new name: {}", id, dto.name());
@@ -62,6 +86,7 @@ public class AuthorService {
         log.info("Author updated successfully with id: {}", updatedAuthor.id());
         return updatedAuthor;
     }
+
 
     public void delete(Long id) {
         log.info("Deleting author with id: {}", id);

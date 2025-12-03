@@ -25,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.Arrays;
 import java.util.List;
 
@@ -39,15 +40,10 @@ public class BookService {
     private final AuthorRepository authorRepository;
     private final ObjectMapper objectMapper;
 
-    // ---------------- CREATE ----------------
-
     public BookResponseDto create(BookRequestDto dto) {
-        log.info("Creating book with title: '{}' and authorId: {}", dto.title(), dto.authorId());
+        log.info("Creating book with title '{}' and authorId {}", dto.title(), dto.authorId());
         Author author = authorRepository.findById(dto.authorId())
-                .orElseThrow(() -> {
-                    log.error("Book creation failed. Author with id {} not found", dto.authorId());
-                    return new ResourceNotFoundException("Author not found");
-                });
+                .orElseThrow(() -> new ResourceNotFoundException("Author not found"));
 
         Book book = Book.builder()
                 .title(dto.title())
@@ -56,120 +52,98 @@ public class BookService {
                 .genres(dto.genres() == null ? List.of() : dto.genres())
                 .build();
 
-        BookResponseDto createdBook = BookMapper.toDto(bookRepository.save(book));
-        log.info("Book created successfully with id: {}", createdBook.id());
-        return createdBook;
+        return BookMapper.toDto(bookRepository.save(book));
     }
 
-    // ---------------- UPDATE ----------------
+    public BookResponseDto createOrDefaultAuthor(BookRequestDto dto) {
+        if (dto.authorId() == null || !authorRepository.existsById(dto.authorId())) {
+            Author defaultAuthor = authorRepository.findByName("Default Author")
+                    .orElseGet(() -> authorRepository.save(Author.builder().name("Default Author").build()));
+            dto = new BookRequestDto(dto.title(), defaultAuthor.getId(), dto.yearPublished(), dto.genres());
+        }
+        return create(dto);
+    }
 
     public BookResponseDto update(Long id, BookRequestDto dto) {
-        log.info("Updating book with id: {}", id);
         Book book = bookRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Book update failed. Book with id {} not found", id);
-                    return new ResourceNotFoundException("Book not found");
-                });
-
+                .orElseThrow(() -> new ResourceNotFoundException("Book not found"));
         Author author = authorRepository.findById(dto.authorId())
-                .orElseThrow(() -> {
-                    log.error("Book update failed. Author with id {} not found", dto.authorId());
-                    return new ResourceNotFoundException("Author not found");
-                });
+                .orElseThrow(() -> new ResourceNotFoundException("Author not found"));
 
         book.setTitle(dto.title());
         book.setAuthor(author);
         book.setYearPublished(dto.yearPublished());
         book.setGenres(dto.genres() == null ? List.of() : dto.genres());
 
-        BookResponseDto updatedBook = BookMapper.toDto(bookRepository.save(book));
-        log.info("Book updated successfully with id: {}", updatedBook.id());
-        return updatedBook;
+        return BookMapper.toDto(bookRepository.save(book));
     }
-
-    // ---------------- DELETE ----------------
 
     public void delete(Long id) {
-        log.info("Deleting book with id: {}", id);
         Book book = bookRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Book deletion failed. Book with id {} not found", id);
-                    return new ResourceNotFoundException("Book not found");
-                });
+                .orElseThrow(() -> new ResourceNotFoundException("Book not found"));
         bookRepository.delete(book);
-        log.info("Book deleted successfully with id: {}", id);
     }
-
-    // ---------------- GET BY ID ----------------
 
     public BookResponseDto getById(Long id) {
-        log.info("Fetching book with id: {}", id);
         Book book = bookRepository.findById(id)
-                .orElseThrow(() -> {
-                    log.error("Book fetch failed. Book with id {} not found", id);
-                    return new ResourceNotFoundException("Book not found");
-                });
-        BookResponseDto dto = BookMapper.toDto(book);
-        log.info("Fetched book: {}", dto);
-        return dto;
+                .orElseThrow(() -> new ResourceNotFoundException("Book not found"));
+        return BookMapper.toDto(book);
     }
 
-    // ---------------- LIST WITH FILTERS ----------------
+    public List<BookResponseDto> getAll() {
+        log.info("Fetching all books");
+        List<BookResponseDto> books = bookRepository.findAll().stream()
+                .map(BookMapper::toDto)
+                .toList();
+        log.info("Fetched {} books", books.size());
+        return books;
+    }
 
-    public PaginatedResponseDto<BookResponseDto> getList(
-            Long authorId,
-            String title,
-            Integer yearPublished,
-            int page,
-            int size
-    ) {
-        log.info("Fetching books with filters - authorId: {}, title: {}, yearPublished: {}, page: {}, size: {}",
-                authorId, title, yearPublished, page, size);
 
+    public BookResponseDto getByIdOrDefault(Long id) {
+        return bookRepository.findById(id)
+                .map(BookMapper::toDto)
+                .orElseGet(() -> {
+                    Author defaultAuthor = authorRepository.findByName("Default Author")
+                            .orElseGet(() -> authorRepository.save(Author.builder().name("Default Author").build()));
+                    Book defaultBook = Book.builder()
+                            .title("Default Book")
+                            .author(defaultAuthor)
+                            .yearPublished(LocalDate.now().getYear())
+                            .genres(List.of())
+                            .build();
+                    return BookMapper.toDto(defaultBook);
+                });
+    }
+
+    public PaginatedResponseDto<BookResponseDto> getList(Long authorId, String title, Integer year, int page, int size) {
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by("title"));
-
         Specification<Book> spec = Specification.allOf(
                 withAuthor(authorId),
                 withTitle(title),
-                withYear(yearPublished)
+                withYear(year)
         );
 
         Page<Book> books = bookRepository.findAll(spec, pageable);
-        List<BookResponseDto> list = books.stream()
-                .map(BookMapper::toDto)
-                .toList();
-
-        log.info("Fetched {} books, total pages: {}", list.size(), books.getTotalPages());
+        List<BookResponseDto> list = books.stream().map(BookMapper::toDto).toList();
         return new PaginatedResponseDto<>(list, books.getTotalPages());
     }
 
-    // ---------------- SPECIFICATIONS ----------------
-
     private Specification<Book> withAuthor(Long authorId) {
-        return (root, cq, cb) ->
-                authorId == null ? null :
-                        cb.equal(root.get("author").get("id"), authorId);
+        return (root, cq, cb) -> authorId == null ? null : cb.equal(root.get("author").get("id"), authorId);
     }
 
     private Specification<Book> withTitle(String title) {
-        return (root, cq, cb) ->
-                (title == null || title.isBlank()) ? null :
-                        cb.like(cb.lower(root.get("title")), "%" + title.toLowerCase() + "%");
+        return (root, cq, cb) -> (title == null || title.isBlank()) ? null :
+                cb.like(cb.lower(root.get("title")), "%" + title.toLowerCase() + "%");
     }
 
     private Specification<Book> withYear(Integer year) {
-        return (root, cq, cb) ->
-                year == null ? null :
-                        cb.equal(root.get("yearPublished"), year);
+        return (root, cq, cb) -> year == null ? null : cb.equal(root.get("yearPublished"), year);
     }
 
-    // ---------------- CSV REPORT ----------------
-
-    public byte[] generateCsvReport(Long authorId, String title, Integer yearPublished) throws IOException {
-        log.info("Generating CSV report with filters - authorId: {}, title: {}, yearPublished: {}",
-                authorId, title, yearPublished);
-        List<BookResponseDto> books = getList(authorId, title, yearPublished, 1, Integer.MAX_VALUE).list();
-
+    public byte[] generateCsvReport(Long authorId, String title, Integer year) throws IOException {
+        List<BookResponseDto> books = getList(authorId, title, year, 1, Integer.MAX_VALUE).list();
         StringWriter writer = new StringWriter();
         try (CSVWriter csvWriter = new CSVWriter(writer)) {
             csvWriter.writeNext(new String[]{"ID", "Title", "Author", "Year Published", "Genres"});
@@ -183,18 +157,11 @@ public class BookService {
                 });
             }
         }
-
-        log.info("CSV report generated, size: {} bytes", writer.toString().getBytes(StandardCharsets.UTF_8).length);
         return writer.toString().getBytes(StandardCharsets.UTF_8);
     }
 
-    // ---------------- JSON UPLOAD ----------------
-
     public UploadResponseDto uploadFromJson(MultipartFile file) throws IOException {
-        log.info("Uploading books from file: {}", file.getOriginalFilename());
-        int success = 0;
-        int failed = 0;
-
+        int success = 0, failed = 0;
         List<BookRequestDto> items;
         try {
             items = Arrays.asList(objectMapper.readValue(file.getInputStream(), BookRequestDto[].class));
@@ -205,15 +172,13 @@ public class BookService {
 
         for (BookRequestDto dto : items) {
             try {
-                create(dto);
+                createOrDefaultAuthor(dto);
                 success++;
             } catch (Exception e) {
                 failed++;
                 log.warn("Failed to import book '{}': {}", dto.title(), e.getMessage());
             }
         }
-
-        log.info("Upload completed. Successful: {}, Failed: {}", success, failed);
         return new UploadResponseDto(success, failed);
     }
 }
