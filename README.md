@@ -6,6 +6,7 @@ Spring Boot сервіс для керування книгами та авто�
 - Java 21
 - Spring Boot 
 - Spring Data JPA
+- Slf4j
 - H2 
 - Liquibase для управління схемою БД
 - Maven

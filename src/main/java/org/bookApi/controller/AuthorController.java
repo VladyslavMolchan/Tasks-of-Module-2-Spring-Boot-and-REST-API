@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.bookApi.dto.AuthorRequestDto;
 import org.bookApi.dto.AuthorResponseDto;
 import org.bookApi.service.AuthorService;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -59,12 +60,14 @@ public class AuthorController {
             @ApiResponse(responseCode = "400", description = "Invalid input data")
     })
     @PostMapping
-    public AuthorResponseDto create(
-            @Parameter(description = "Author details for creation", required = true)
-            @Valid @RequestBody AuthorRequestDto dto) {
+    public ResponseEntity<AuthorResponseDto> create(@Valid @RequestBody AuthorRequestDto dto) {
         log.info("Creating a new author: {}", dto);
-        return authorService.createOrReturnExisting(dto); // якщо автор вже є, повертає існуючого
+
+        AuthorResponseDto created = authorService.create(dto);
+
+        return ResponseEntity.ok(created);
     }
+
 
     @Operation(summary = "Update an existing author", description = "Updates the author with the specified ID")
     @ApiResponses(value = {

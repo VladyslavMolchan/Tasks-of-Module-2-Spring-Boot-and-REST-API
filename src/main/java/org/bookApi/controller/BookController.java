@@ -117,7 +117,7 @@ public class BookController {
             @Parameter(description = "Filter by book title") @RequestParam(required = false) String title,
             @Parameter(description = "Filter by year published") @RequestParam(required = false) Integer yearPublished,
             @Parameter(description = "Page number, default 1") @RequestParam(defaultValue = "1") int page,
-            @Parameter(description = "Page size, default 20") @RequestParam(defaultValue = "20") int size
+            @Parameter(description = "Page size, default 1") @RequestParam(defaultValue = "1") int size
     ) {
         log.info("Searching books with filters - authorId: {}, title: {}, yearPublished: {}, page: {}, size: {}",
                 authorId, title, yearPublished, page, size);
