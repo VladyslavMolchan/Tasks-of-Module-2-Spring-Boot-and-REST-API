@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.client.TestRestTemplate;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.http.*;
 
@@ -53,8 +54,13 @@ public class BookControllerIT {
 
         ResponseEntity<BookResponseDto> response = restTemplate.postForEntity("/api/books", request, BookResponseDto.class);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CREATED);
+
+
         assertThat(response.getBody().title()).isEqualTo("Book Two");
+
+
         assertThat(bookRepository.findAll()).hasSize(2);
     }
 
@@ -84,9 +90,13 @@ public class BookControllerIT {
     void testDeleteBook() {
         Book existing = bookRepository.findAll().get(0);
 
-        ResponseEntity<Void> response = restTemplate.exchange("/api/books/" + existing.getId(), HttpMethod.DELETE, null, Void.class);
+        ResponseEntity<Void> response = restTemplate.exchange("/api/books/" + existing.getId(),
+                HttpMethod.DELETE, null, Void.class);
 
-        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NO_CONTENT);
+
+
         assertThat(bookRepository.existsById(existing.getId())).isFalse();
     }
 
@@ -138,4 +148,20 @@ public class BookControllerIT {
         assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
         assertThat(response.getBody().successCount()).isEqualTo(1);
     }
+
+    @Test
+    void testGetAllBooksPaginated() {
+        ResponseEntity<PaginatedResponseDto<BookResponseDto>> response = restTemplate.exchange(
+                "/api/books?page=1&size=10",
+                HttpMethod.GET,
+                null,
+                new ParameterizedTypeReference<PaginatedResponseDto<BookResponseDto>>() {}
+        );
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.OK);
+
+        List<BookResponseDto> books = response.getBody().list();
+        assertThat(books).hasSizeGreaterThan(0);
+    }
+
 }

@@ -11,11 +11,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.bookApi.dto.AuthorRequestDto;
 import org.bookApi.dto.AuthorResponseDto;
+import org.bookApi.dto.PaginatedResponseDto;
 import org.bookApi.service.AuthorService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.net.URI;
+
 
 @RestController
 @RequestMapping("/api/authors")
@@ -25,16 +27,18 @@ public class AuthorController {
 
     private final AuthorService authorService;
 
-    @Operation(summary = "Get all authors", description = "Returns a list of all authors in the system")
+    @Operation(summary = "Get authors with pagination", description = "Returns a paginated list of authors")
     @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Successfully retrieved list",
+            @ApiResponse(responseCode = "200", description = "Successfully retrieved authors",
                     content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = AuthorResponseDto.class)))
+                            schema = @Schema(implementation = PaginatedResponseDto.class)))
     })
     @GetMapping
-    public List<AuthorResponseDto> getAll() {
-        log.info("Fetching all authors");
-        return authorService.getAll();
+    public PaginatedResponseDto<AuthorResponseDto> getAll(
+            @Parameter(description = "Page number, default 1") @RequestParam(defaultValue = "1") int page,
+            @Parameter(description = "Page size, default 4") @RequestParam(defaultValue = "4") int size) {
+        log.info("Fetching authors, page={}, size={}", page, size);
+        return authorService.getList(page, size);
     }
 
     @Operation(summary = "Get an author by ID", description = "Returns a single author by its ID")
@@ -45,58 +49,36 @@ public class AuthorController {
             @ApiResponse(responseCode = "404", description = "Author not found")
     })
     @GetMapping("/{id}")
-    public AuthorResponseDto getById(
-            @Parameter(description = "ID of the author to fetch", required = true)
-            @PathVariable Long id) {
+    public ResponseEntity<AuthorResponseDto> getById(@PathVariable Long id) {
         log.info("Fetching author with id {}", id);
-        return authorService.getByIdOrDefault(id); // повертає дефолтного автора, якщо не існує
+        AuthorResponseDto dto = authorService.getById(id);
+        return ResponseEntity.ok(dto);
     }
 
-    @Operation(summary = "Create a new author", description = "Creates a new author with the given details")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Author successfully created",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = AuthorResponseDto.class))),
-            @ApiResponse(responseCode = "400", description = "Invalid input data")
-    })
+    @Operation(summary = "Create a new author", description = "Creates a new author")
     @PostMapping
     public ResponseEntity<AuthorResponseDto> create(@Valid @RequestBody AuthorRequestDto dto) {
         log.info("Creating a new author: {}", dto);
-
         AuthorResponseDto created = authorService.create(dto);
-
-        return ResponseEntity.ok(created);
+        return ResponseEntity
+                .created(URI.create("/api/authors/" + created.id()))
+                .body(created);
     }
 
-
     @Operation(summary = "Update an existing author", description = "Updates the author with the specified ID")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Author successfully updated",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = AuthorResponseDto.class))),
-            @ApiResponse(responseCode = "404", description = "Author not found"),
-            @ApiResponse(responseCode = "400", description = "Invalid input data")
-    })
     @PutMapping("/{id}")
-    public AuthorResponseDto update(
-            @Parameter(description = "ID of the author to update", required = true)
-            @PathVariable Long id,
-            @Parameter(description = "Updated author details", required = true)
-            @Valid @RequestBody AuthorRequestDto dto) {
+    public ResponseEntity<AuthorResponseDto> update(@PathVariable Long id,
+                                                    @Valid @RequestBody AuthorRequestDto dto) {
         log.info("Updating author with id {}: {}", id, dto);
-        return authorService.update(id, dto);
+        AuthorResponseDto updated = authorService.update(id, dto);
+        return ResponseEntity.ok(updated);
     }
 
     @Operation(summary = "Delete an author", description = "Deletes the author with the specified ID")
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "204", description = "Author successfully deleted"),
-            @ApiResponse(responseCode = "404", description = "Author not found")
-    })
     @DeleteMapping("/{id}")
-    public void delete(
-            @Parameter(description = "ID of the author to delete", required = true)
-            @PathVariable Long id) {
+    public ResponseEntity<Void> delete(@PathVariable Long id) {
         log.info("Deleting author with id {}", id);
         authorService.delete(id);
+        return ResponseEntity.noContent().build();
     }
 }

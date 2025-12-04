@@ -63,22 +63,6 @@ class AuthorServiceIntegrationTest {
         assertEquals(2, list.size());
     }
 
-    @Test
-    void getByIdOrDefault_existingAuthor() {
-        Author saved = authorRepository.save(Author.builder().name("Mark").build());
-
-        AuthorResponseDto dto = authorService.getByIdOrDefault(saved.getId());
-
-        assertEquals("Mark", dto.name());
-    }
-
-    @Test
-    void getByIdOrDefault_returnsDefault() {
-        AuthorResponseDto dto = authorService.getByIdOrDefault(999L);
-
-        assertEquals(0L, dto.id());
-        assertEquals("Default Author", dto.name());
-    }
 
     @Test
     void createOrReturnExisting_returnsExisting() {

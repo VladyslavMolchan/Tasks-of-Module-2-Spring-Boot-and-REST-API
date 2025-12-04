@@ -22,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -74,29 +73,6 @@ class BookServiceIntegrationTest {
         assertThrows(ResourceNotFoundException.class, () -> bookService.create(dto));
     }
 
-    @Test
-    void createOrDefaultAuthor_usesDefaultAuthorWhenMissing() {
-
-        BookRequestDto dto = new BookRequestDto("Book X", null, 2021, new ArrayList<>());
-
-        BookResponseDto result = bookService.createOrDefaultAuthor(dto);
-
-        assertEquals("Book X", result.title());
-        assertEquals("Default Author", result.author().name());
-        assertEquals(2, authorRepository.count());
-    }
-
-    @Test
-    void createOrDefaultAuthor_usesExistingAuthor() {
-
-        BookRequestDto dto =
-                new BookRequestDto("Book Y", savedAuthor.getId(), 2021,
-                        new ArrayList<>(List.of("Action")));
-
-        BookResponseDto result = bookService.createOrDefaultAuthor(dto);
-
-        assertEquals(savedAuthor.getId(), result.author().id());
-    }
 
     @Test
     void getById_success() {
@@ -132,30 +108,6 @@ class BookServiceIntegrationTest {
         assertEquals(2, result.size());
     }
 
-    @Test
-    void getByIdOrDefault_returnsBook() {
-        Book book = bookRepository.save(
-                Book.builder()
-                        .title("ZBook")
-                        .author(savedAuthor)
-                        .yearPublished(2022)
-                        .genres(new ArrayList<>())
-                        .build()
-        );
-
-        BookResponseDto result = bookService.getByIdOrDefault(book.getId());
-
-        assertEquals("ZBook", result.title());
-    }
-
-    @Test
-    void getByIdOrDefault_returnsDefault() {
-        BookResponseDto dto = bookService.getByIdOrDefault(9999L);
-
-        assertEquals("Default Book", dto.title());
-        assertEquals("Default Author", dto.author().name());
-        assertEquals(LocalDate.now().getYear(), dto.yearPublished());
-    }
 
     @Test
     void update_success() {

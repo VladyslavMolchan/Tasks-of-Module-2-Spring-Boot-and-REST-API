@@ -20,12 +20,12 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.io.StringWriter;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -35,6 +35,7 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @Slf4j
+@Transactional
 public class BookService {
 
     private final BookRepository bookRepository;
@@ -45,54 +46,22 @@ public class BookService {
         return genres == null ? new ArrayList<>() : new ArrayList<>(genres);
     }
 
+
     public BookResponseDto create(BookRequestDto dto) {
-        log.info("Creating book with title '{}' and authorId {}", dto.title(), dto.authorId());
-
-        Author author = authorRepository.findById(dto.authorId())
-                .orElseThrow(() -> new ResourceNotFoundException("Author not found"));
-
+        Author author = getAuthorOrThrow(dto.authorId());
         Book book = Book.builder()
                 .title(dto.title())
                 .author(author)
                 .yearPublished(dto.yearPublished())
                 .genres(safeGenres(dto.genres()))
                 .build();
-
         return BookMapper.toDto(bookRepository.save(book));
-    }
-
-    public BookResponseDto createOrDefaultAuthor(BookRequestDto dto) {
-
-        // Якщо authorId == null → використовуємо дефолтного
-        if (dto.authorId() == null) {
-            Author defaultAuthor = authorRepository.findByName("Default Author")
-                    .orElseGet(() -> authorRepository.save(Author.builder().name("Default Author").build()));
-
-            dto = new BookRequestDto(
-                    dto.title(),
-                    defaultAuthor.getId(),
-                    dto.yearPublished(),
-                    dto.genres()
-            );
-
-            return create(dto);
-        }
-
-        if (!authorRepository.existsById(dto.authorId())) {
-            throw new ResourceNotFoundException("Author not found");
-        }
-
-        return create(dto);
     }
 
 
     public BookResponseDto update(Long id, BookRequestDto dto) {
-
-        Book book = bookRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Book not found"));
-
-        Author author = authorRepository.findById(dto.authorId())
-                .orElseThrow(() -> new ResourceNotFoundException("Author not found"));
+        Book book = getBookOrThrow(id);
+        Author author = getAuthorOrThrow(dto.authorId());
 
         book.setTitle(dto.title());
         book.setAuthor(author);
@@ -102,52 +71,30 @@ public class BookService {
         return BookMapper.toDto(bookRepository.save(book));
     }
 
+
     public void delete(Long id) {
-        Book book = bookRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Book not found"));
+        Book book = getBookOrThrow(id);
         bookRepository.delete(book);
     }
 
+
+    @Transactional(readOnly = true)
     public BookResponseDto getById(Long id) {
-        Book book = bookRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Book not found"));
-        return BookMapper.toDto(book);
+        return BookMapper.toDto(getBookOrThrow(id));
     }
 
+
+    @Transactional(readOnly = true)
     public List<BookResponseDto> getAll() {
-        log.info("Fetching all books");
-        List<BookResponseDto> books = bookRepository.findAll().stream()
+        return bookRepository.findAll().stream()
                 .map(BookMapper::toDto)
                 .toList();
-        log.info("Fetched {} books", books.size());
-        return books;
     }
 
-    public BookResponseDto getByIdOrDefault(Long id) {
 
-        return bookRepository.findById(id)
-                .map(BookMapper::toDto)
-                .orElseGet(() -> {
-
-                    Author defaultAuthor = authorRepository.findByName("Default Author")
-                            .orElseGet(() -> authorRepository.save(
-                                    Author.builder().name("Default Author").build()
-                            ));
-
-                    Book defaultBook = Book.builder()
-                            .title("Default Book")
-                            .author(defaultAuthor)
-                            .yearPublished(LocalDate.now().getYear())
-                            .genres(new ArrayList<>())
-                            .build();
-
-                    return BookMapper.toDto(defaultBook);
-                });
-    }
-
+    @Transactional(readOnly = true)
     public PaginatedResponseDto<BookResponseDto> getList(
-            Long authorId, String title, Integer year, int page, int size
-    ) {
+            Long authorId, String title, Integer year, int page, int size) {
 
         Pageable pageable = PageRequest.of(page - 1, size, Sort.by("title"));
 
@@ -158,45 +105,16 @@ public class BookService {
         );
 
         Page<Book> books = bookRepository.findAll(spec, pageable);
-
-        List<BookResponseDto> list = books.stream()
-                .map(BookMapper::toDto)
-                .toList();
-
+        List<BookResponseDto> list = books.stream().map(BookMapper::toDto).toList();
         return new PaginatedResponseDto<>(list, books.getTotalPages());
     }
 
-    private Specification<Book> withAuthor(Long authorId) {
-        return (root, cq, cb) -> authorId == null
-                ? null
-                : cb.equal(root.get("author").get("id"), authorId);
-    }
-
-    private Specification<Book> withTitle(String title) {
-        return (root, cq, cb) ->
-                (title == null || title.isBlank())
-                        ? null
-                        : cb.like(cb.lower(root.get("title")), "%" + title.toLowerCase() + "%");
-    }
-
-    private Specification<Book> withYear(Integer year) {
-        return (root, cq, cb) -> year == null
-                ? null
-                : cb.equal(root.get("yearPublished"), year);
-    }
 
     public byte[] generateCsvReport(Long authorId, String title, Integer year) throws IOException {
-
         List<BookResponseDto> books = getList(authorId, title, year, 1, Integer.MAX_VALUE).list();
-
         StringWriter writer = new StringWriter();
-
         try (CSVWriter csvWriter = new CSVWriter(writer)) {
-
-            csvWriter.writeNext(new String[]{
-                    "ID", "Title", "Author", "Year Published", "Genres"
-            });
-
+            csvWriter.writeNext(new String[]{"ID", "Title", "Author", "Year Published", "Genres"});
             for (BookResponseDto book : books) {
                 csvWriter.writeNext(new String[]{
                         String.valueOf(book.id()),
@@ -207,33 +125,23 @@ public class BookService {
                 });
             }
         }
-
         return writer.toString().getBytes(StandardCharsets.UTF_8);
     }
 
-    public UploadResponseDto uploadFromJson(MultipartFile file) throws IOException {
 
+    public UploadResponseDto uploadFromJson(MultipartFile file) throws IOException {
         int success = 0, failed = 0;
         List<BookRequestDto> items;
 
         try {
-            items = Arrays.asList(
-                    objectMapper.readValue(file.getInputStream(), BookRequestDto[].class)
-            );
+            items = Arrays.asList(objectMapper.readValue(file.getInputStream(), BookRequestDto[].class));
         } catch (Exception e) {
             throw new RuntimeException("Invalid JSON file");
         }
 
         for (BookRequestDto dto : items) {
             try {
-                dto = new BookRequestDto(
-                        dto.title(),
-                        dto.authorId(),
-                        dto.yearPublished(),
-                        safeGenres(dto.genres())
-                );
-
-                createOrDefaultAuthor(dto);
+                create(dto);
                 success++;
             } catch (Exception ex) {
                 failed++;
@@ -242,5 +150,29 @@ public class BookService {
         }
 
         return new UploadResponseDto(success, failed);
+    }
+
+
+    private Book getBookOrThrow(Long id) {
+        return bookRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Book not found"));
+    }
+
+    private Author getAuthorOrThrow(Long id) {
+        return authorRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Author not found"));
+    }
+
+    private Specification<Book> withAuthor(Long authorId) {
+        return (root, cq, cb) -> authorId == null ? null : cb.equal(root.get("author").get("id"), authorId);
+    }
+
+    private Specification<Book> withTitle(String title) {
+        return (root, cq, cb) -> (title == null || title.isBlank()) ? null
+                : cb.like(cb.lower(root.get("title")), "%" + title.toLowerCase() + "%");
+    }
+
+    private Specification<Book> withYear(Integer year) {
+        return (root, cq, cb) -> year == null ? null : cb.equal(root.get("yearPublished"), year);
     }
 }
