@@ -25,6 +25,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 
 
+@CrossOrigin(origins = "http://localhost:3050")
 @RestController
 @RequestMapping("/api/books")
 @RequiredArgsConstructor

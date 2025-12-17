@@ -1,12 +1,10 @@
 package org.bookApi.dto;
 
-import org.bookApi.dto.AuthorResponseDto;
 
 import java.util.List;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
-import java.util.List;
 
 @Schema(description = "DTO representing a book in responses")
 public record BookResponseDto(
